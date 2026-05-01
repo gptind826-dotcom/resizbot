@@ -20,14 +20,14 @@ API_HASH = os.getenv("API_HASH", "f28edfab583936ea62d6b458f754a4bd")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8683358561:AAHe8V3EQwx0JkTaue_41kM3Zkpc7FfYRrU")
 
 if not all([API_ID, API_HASH, BOT_TOKEN]):
-    logger.error("𝐌𝐢𝐬𝐬𝐢𝐧𝐠 𝐫𝐞𝐪𝐮𝐢𝐫𝐞𝐝 𝐞𝐧𝐯𝐢𝐫𝐨𝐧𝐦𝐞𝐧𝐭 𝐯𝐚𝐫𝐢𝐚𝐛𝐥𝐞𝐬")
-    raise ValueError("𝐏𝐥𝐞𝐚𝐬𝐞 𝐬𝐞𝐭 𝐀𝐏𝐈_𝐈𝐃, 𝐀𝐏𝐈_𝐇𝐀𝐒𝐇, 𝐚𝐧𝐝 𝐁𝐎𝐓_𝐓𝐎𝐊𝐄𝐍")
+    logger.error("Missing required environment variables: API_ID, API_HASH, BOT_TOKEN")
+    raise ValueError("Please set API_ID, API_HASH, and BOT_TOKEN environment variables")
 
 flask_app = Flask(__name__)
 
 @flask_app.route('/')
 def home():
-    return "𝐁𝐨𝐭 𝐢𝐬 𝐚𝐥𝐢𝐯𝐞"
+    return "Bot is alive"
 
 def run_flask():
     port = int(os.getenv("PORT", 8080))
@@ -35,7 +35,7 @@ def run_flask():
 
 flask_thread = threading.Thread(target=run_flask, daemon=True)
 flask_thread.start()
-logger.info("𝐅𝐥𝐚𝐬𝐤 𝐤𝐞𝐞𝐩-𝐚𝐥𝐢𝐯𝐞 𝐬𝐞𝐫𝐯𝐞𝐫 𝐬𝐭𝐚𝐫𝐭𝐞𝐝")
+logger.info("Flask keep-alive server started")
 
 bot = Client(
     "background_remover_bot",
@@ -50,14 +50,14 @@ bot = Client(
 async def start_command(client: Client, message: Message):
     user = message.from_user
     user_id = user.id
-    first_name = user.first_name or "𝐔𝐬𝐞𝐫"
+    first_name = user.first_name or "User"
     
     bot_info = await client.get_me()
     bot_name = bot_info.first_name
     
-    status = "𝐔𝐬𝐞𝐫"
+    status = "User"
     if user_id == 123456789:
-        status = "𝐀𝐝𝐦𝐢𝐧"
+        status = "Admin"
     
     welcome_text = f"""
 ╔═══《 🎉 𝐖𝐞𝐥𝐜𝐨𝐦𝐞! 》═══╗
@@ -145,7 +145,7 @@ async def process_image(input_path: str, output_path: str):
     
     new_img.save(output_path, "PNG")
     
-    logger.info(f"𝐈𝐦𝐚𝐠𝐞 𝐩𝐫𝐨𝐜𝐞𝐬𝐬𝐞𝐝: {output_path}")
+    logger.info(f"Image processed: {output_path}")
 
 @bot.on_message(filters.photo)
 async def handle_photo(client: Client, message: Message):
@@ -170,7 +170,7 @@ async def handle_photo(client: Client, message: Message):
             os.remove(output_path)
             
     except Exception as e:
-        logger.error(f"𝐄𝐫𝐫𝐨𝐫 𝐩𝐫𝐨𝐜𝐞𝐬𝐬𝐢𝐧𝐠 𝐩𝐡𝐨𝐭𝐨: {e}")
+        logger.error(f"Error processing photo: {e}")
         await message.reply_text("❌ 𝐄𝐫𝐫𝐨𝐫 𝐩𝐫𝐨𝐜𝐞𝐬𝐬𝐢𝐧𝐠 𝐢𝐦𝐚𝐠𝐞. 𝐏𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧.")
         
     finally:
@@ -212,7 +212,7 @@ async def handle_document(client: Client, message: Message):
             os.remove(output_path)
             
     except Exception as e:
-        logger.error(f"𝐄𝐫𝐫𝐨𝐫 𝐩𝐫𝐨𝐜𝐞𝐬𝐬𝐢𝐧𝐠 𝐝𝐨𝐜𝐮𝐦𝐞𝐧𝐭: {e}")
+        logger.error(f"Error processing document: {e}")
         await message.reply_text("❌ 𝐄𝐫𝐫𝐨𝐫 𝐩𝐫𝐨𝐜𝐞𝐬𝐬𝐢𝐧𝐠 𝐢𝐦𝐚𝐠𝐞. 𝐏𝐥𝐞𝐚𝐬𝐞 𝐭𝐫𝐲 𝐚𝐠𝐚𝐢𝐧.")
         
     finally:
@@ -229,7 +229,7 @@ async def handle_text(client: Client, message: Message):
     )
 
 if __name__ == "__main__":
-    logger.info("𝐒𝐭𝐚𝐫𝐭𝐢𝐧𝐠 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐑𝐞𝐦𝐨𝐯𝐞𝐫 𝐁𝐨𝐭...")
+    logger.info("Starting Background Remover Bot...")
     print("""
 ╔═══════════════════════════════╗
 ║   🤖 𝐁𝐎𝐓 𝐒𝐓𝐀𝐑𝐓𝐄𝐃   ║
