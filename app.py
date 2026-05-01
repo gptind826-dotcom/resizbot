@@ -26,6 +26,9 @@ if not all([API_ID, API_HASH, BOT_TOKEN]):
     logger.error("Missing required environment variables")
     sys.exit(1)
 
+# ===========================================
+# FLASK - Must start first for Render
+# ===========================================
 flask_app = Flask(__name__)
 
 @flask_app.route('/')
@@ -42,22 +45,36 @@ def run_flask():
 
 flask_thread = threading.Thread(target=run_flask, daemon=True)
 flask_thread.start()
-logger.info("Flask server started on port 8080")
+logger.info("Flask server started")
 
+# ===========================================
+# BOT - CRITICAL: Define BEFORE handlers
+# ===========================================
+bot = Client(
+    "background_remover_bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN,
+    workers=2,
+    max_bots=1
+)
+
+# ===========================================
+# HANDLERS - After bot is defined
+# ===========================================
 @bot.on_message(filters.command("start"))
 async def start_command(client: Client, message: Message):
-    user = message.from_user
-    user_id = user.id
-    first_name = user.first_name or "User"
-    
-    bot_info = await client.get_me()
-    bot_name = bot_info.first_name
-    
-    status = "User"
-    if user_id == 123456789:
-        status = "Admin"
-    
-    welcome_text = f"""
+    try:
+        user = message.from_user
+        user_id = user.id
+        first_name = user.first_name or "User"
+        
+        bot_info = await client.get_me()
+        bot_name = bot_info.first_name
+        
+        status = "User"
+        
+        welcome_text = f"""
 ╔═══《 🎉 𝐖𝐞𝐥𝐜𝐨𝐦𝐞! 》═══╗
 
 👤 𝐔𝐬𝐞𝐫: {first_name}
@@ -88,7 +105,9 @@ async def start_command(client: Client, message: Message):
 ⚠️ 𝐍𝐨𝐭𝐞:
 𝐎𝐧𝐥𝐲 𝐢𝐦𝐚𝐠𝐞 𝐟𝐢𝐥𝐞𝐬 𝐚𝐫𝐞 𝐬𝐮𝐩𝐩𝐨𝐫𝐭𝐞𝐝.
 """
-    await message.reply_text(welcome_text)
+        await message.reply_text(welcome_text)
+    except Exception as e:
+        logger.error(f"Start command error: {e}")
 
 @bot.on_message(filters.command("help"))
 async def help_command(client: Client, message: Message):
@@ -226,6 +245,9 @@ async def handle_text(client: Client, message: Message):
         "💡 𝐔𝐬𝐞 /𝐡𝐞𝐥𝐩 𝐟𝐨𝐫 𝐦𝐨𝐫𝐞 𝐢𝐧𝐟𝐨𝐫𝐦𝐚𝐭𝐢𝐨𝐧."
     )
 
+# ===========================================
+# START
+# ===========================================
 if __name__ == "__main__":
     logger.info("Starting Background Remover Bot...")
     print("""
