@@ -2,10 +2,13 @@ import os
 import io
 import logging
 import threading
+import sys
+
+os.environ['U2NET_HOME'] = '/tmp/.u2net'
 
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from rembg import remove
+from rembg import remove, new_session
 from PIL import Image
 from flask import Flask
 
@@ -20,8 +23,8 @@ API_HASH = os.getenv("API_HASH", "f28edfab583936ea62d6b458f754a4bd")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8683358561:AAHe8V3EQwx0JkTaue_41kM3Zkpc7FfYRrU")
 
 if not all([API_ID, API_HASH, BOT_TOKEN]):
-    logger.error("Missing required environment variables: API_ID, API_HASH, BOT_TOKEN")
-    raise ValueError("Please set API_ID, API_HASH, and BOT_TOKEN environment variables")
+    logger.error("Missing required environment variables")
+    sys.exit(1)
 
 flask_app = Flask(__name__)
 
@@ -30,21 +33,16 @@ def home():
     return "Bot is alive"
 
 def run_flask():
-    port = int(os.getenv("PORT", 8080))
-    flask_app.run(host='0.0.0.0', port=port, debug=False)
+    try:
+        port = int(os.getenv("PORT", 8080))
+        logger.info(f"Starting Flask on port {port}")
+        flask_app.run(host='0.0.0.0', port=port, debug=False)
+    except Exception as e:
+        logger.error(f"Flask error: {e}")
 
 flask_thread = threading.Thread(target=run_flask, daemon=True)
 flask_thread.start()
-logger.info("Flask keep-alive server started")
-
-bot = Client(
-    "background_remover_bot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=BOT_TOKEN,
-    workers=4,
-    max_bots=1
-)
+logger.info("Flask server started on port 8080")
 
 @bot.on_message(filters.command("start"))
 async def start_command(client: Client, message: Message):
