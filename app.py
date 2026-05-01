@@ -4,11 +4,8 @@ import logging
 import threading
 import sys
 
-os.environ['U2NET_HOME'] = '/tmp/.u2net'
-
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from rembg import remove, new_session
 from PIL import Image
 from flask import Flask
 
@@ -26,9 +23,16 @@ if not all([API_ID, API_HASH, BOT_TOKEN]):
     logger.error("Missing required environment variables")
     sys.exit(1)
 
-# ===========================================
-# FLASK - Must start first for Render
-# ===========================================
+# Try to import rembg (may fail on Termux)
+try:
+    from rembg import remove
+    REMBG_AVAILABLE = True
+    logger.info("rembg loaded successfully")
+except ImportError:
+    REMBG_AVAILABLE = False
+    logger.warning("rembg not available - background removal disabled")
+    logger.warning("Install rembg: pip install rembg onnxruntime")
+
 flask_app = Flask(__name__)
 
 @flask_app.route('/')
@@ -47,9 +51,6 @@ flask_thread = threading.Thread(target=run_flask, daemon=True)
 flask_thread.start()
 logger.info("Flask server started")
 
-# ===========================================
-# BOT - CRITICAL: Define BEFORE handlers
-# ===========================================
 bot = Client(
     "background_remover_bot",
     api_id=API_ID,
@@ -59,9 +60,6 @@ bot = Client(
     max_bots=1
 )
 
-# ===========================================
-# HANDLERS - After bot is defined
-# ===========================================
 @bot.on_message(filters.command("start"))
 async def start_command(client: Client, message: Message):
     try:
@@ -142,26 +140,37 @@ async def help_command(client: Client, message: Message):
     await message.reply_text(help_text)
 
 async def process_image(input_path: str, output_path: str):
-    with open(input_path, 'rb') as f:
-        input_data = f.read()
+    """Process image with or without rembg"""
     
-    output_data = remove(input_data)
+    # Open the image
+    img = Image.open(input_path).convert("RGBA")
     
-    img = Image.open(io.BytesIO(output_data)).convert("RGBA")
+    # Try to remove background if rembg is available
+    if REMBG_AVAILABLE:
+        try:
+            with open(input_path, 'rb') as f:
+                input_data = f.read()
+            output_data = remove(input_data)
+            img = Image.open(io.BytesIO(output_data)).convert("RGBA")
+        except Exception as e:
+            logger.warning(f"Background removal failed, using original: {e}")
     
+    # Resize to 100x100 maintaining aspect ratio
     target_size = (100, 100)
-    
     new_img = Image.new("RGBA", target_size, (0, 0, 0, 0))
     
+    # Resize maintaining aspect ratio
     img.thumbnail(target_size, Image.Resampling.LANCZOS)
     
+    # Center the image
     paste_x = (target_size[0] - img.width) // 2
     paste_y = (target_size[1] - img.height) // 2
     
+    # Paste onto transparent canvas
     new_img.paste(img, (paste_x, paste_y), img if img.mode == 'RGBA' else None)
     
+    # Save as PNG
     new_img.save(output_path, "PNG")
-    
     logger.info(f"Image processed: {output_path}")
 
 @bot.on_message(filters.photo)
@@ -173,7 +182,6 @@ async def handle_photo(client: Client, message: Message):
         output_path = f"output_{message.id}.png"
         
         await message.download(file_name=input_path)
-        
         await process_image(input_path, output_path)
         
         await message.reply_document(
@@ -181,10 +189,10 @@ async def handle_photo(client: Client, message: Message):
             caption="✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐑𝐞𝐦𝐨𝐯𝐞𝐝 + 𝐑𝐞𝐬𝐢𝐳𝐞𝐝 𝐭𝐨 𝟏𝟎𝟎𝐱𝟏𝟎𝟎"
         )
         
-        if os.path.exists(input_path):
-            os.remove(input_path)
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        # Cleanup
+        for path in [input_path, output_path]:
+            if os.path.exists(path):
+                os.remove(path)
             
     except Exception as e:
         logger.error(f"Error processing photo: {e}")
@@ -215,7 +223,6 @@ async def handle_document(client: Client, message: Message):
         output_path = f"output_doc_{message.id}.png"
         
         await message.download(file_name=input_path)
-        
         await process_image(input_path, output_path)
         
         await message.reply_document(
@@ -223,10 +230,10 @@ async def handle_document(client: Client, message: Message):
             caption="✅ 𝐁𝐚𝐜𝐤𝐠𝐫𝐨𝐮𝐧𝐝 𝐑𝐞𝐦𝐨𝐯𝐞𝐝 + 𝐑𝐞𝐬𝐢𝐳𝐞𝐝 𝐭𝐨 𝟏𝟎𝟎𝐱𝟏𝟎𝟎"
         )
         
-        if os.path.exists(input_path):
-            os.remove(input_path)
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        # Cleanup
+        for path in [input_path, output_path]:
+            if os.path.exists(path):
+                os.remove(path)
             
     except Exception as e:
         logger.error(f"Error processing document: {e}")
@@ -245,11 +252,12 @@ async def handle_text(client: Client, message: Message):
         "💡 𝐔𝐬𝐞 /𝐡𝐞𝐥𝐩 𝐟𝐨𝐫 𝐦𝐨𝐫𝐞 𝐢𝐧𝐟𝐨𝐫𝐦𝐚𝐭𝐢𝐨𝐧."
     )
 
-# ===========================================
-# START
-# ===========================================
 if __name__ == "__main__":
     logger.info("Starting Background Remover Bot...")
+    if not REMBG_AVAILABLE:
+        logger.warning("Running without background removal (rembg not installed)")
+        logger.warning("Images will be resized to 100x100 without removing background")
+    
     print("""
 ╔═══════════════════════════════╗
 ║   🤖 𝐁𝐎𝐓 𝐒𝐓𝐀𝐑𝐓𝐄𝐃   ║
